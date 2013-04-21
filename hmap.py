@@ -7,11 +7,18 @@ import pyproj
 import random
 import uuid
 import heatmap
+import requests
+import json
+
 
 domain = 'http://smartcities.switchsystems.co.uk/cgi-bin/'
 src_proj = pyproj.Proj(init='epsg:4326')
 dest_proj = pyproj.Proj(init='epsg:900913')
 img_folder = "img/"
+bbox_north = 50.7290
+bbox_south = 50.7212
+bbox_east = -3.5170
+bbox_west = -3.5340
 
 '''
   Note:
@@ -22,7 +29,10 @@ img_folder = "img/"
 
 
 def write_pts(pts):
-  # get sensor ids - used for dev only
+  """
+    Use this function to export the randomly generated sensor ids as CSV
+    This function is used for dev only
+  """
   sensor_ids = []
   with open('../../Readings.csv','r') as kml:
     for line in kml:
@@ -34,6 +44,37 @@ def write_pts(pts):
     fb = '";"' # field break (between fields and empty fields)
     for line_num in range(len(pts)):
       csv_fh.write('"'+sensor_ids[line_num]+fb*6+'BUCL_exeter'+fb+str(pts[line_num][1])+fb+str(pts[line_num][0])+fb*3+'"\n')
+
+
+def get_test_pts():
+  return [(random.uniform(bbox_west, bbox_east), random.uniform(bbox_south, bbox_north)) for x in range(21)]
+
+
+def get_service_pts():
+  """
+    Connect to the service API and retrieve points for BUCL data (relocated to Exeter)
+  """
+  details = {
+    "sensors": ["TEMP"],
+    "startLng": bbox_west,
+    "endLng": bbox_east,
+    "startLat": bbox_south,
+    "endLat": bbox_north,
+    "mode": "real"
+  }
+  the_options = {
+    "options": json.dumps(details)
+  }
+  theData = requests.get('http://www.smartcities.switchsystems.co.uk/api/reading/data', params=the_options)
+
+  #print theData.json()
+  #print theData.text
+  #loadedData = json.loads(theData.json())
+  #print loadedData
+
+  for readings in theData.json()["readings"]:
+    print readings["device_lng"], readings["device_lat"]
+
 
 
 def extract_tag_value(direction, line):
@@ -67,7 +108,8 @@ def export_geotiff(payload, fname, x_min, x_max, y_min, y_max):
 
 
 hm = heatmap.Heatmap()
-pts = [(random.uniform(-3.5340, -3.5170), random.uniform(50.7212, 50.7290)) for x in range(21)]
+pts = get_service_pts()
+##pts = get_test_pts()
 ##write_pts(pts)
 
 for i in range(len(pts)):
